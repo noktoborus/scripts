@@ -1,6 +1,7 @@
 #!/bin/sh
 # vim: ft=sh ff=unix fenc=utf-8
 # file: menu.sh
+export DIALOG_TTY=/dev/tty
 
 scriptd=`dirname $0`
 XUSER=${1-"-"}

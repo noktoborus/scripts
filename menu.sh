@@ -21,7 +21,7 @@ export EDITOR=nano
 action() {
 	act="$1"
 	case "$act" in
-	supervisor)
+	supervisorctl)
 		supervisorctl
 		;;
 	crontab)

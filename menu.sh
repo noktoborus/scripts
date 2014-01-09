@@ -69,6 +69,7 @@ while true;
 do
 	act=$(dialog --help-button --stdout --menu "Welcome to `hostname`" 0 0 0\
 		shell "run shell"\
+		supervisorctl "manage supervisord's tasks"\
 		crontab "edit crontab"\
 		mongoset "configure mongo's sets"\
 		sshkeys "manange ssh authorized keys"\

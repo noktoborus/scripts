@@ -5,6 +5,9 @@
 scriptd=`dirname $0`
 XUSER=${1-"-"}
 
+[ -e "$scriptd/ENV_${USER}.sh" ] && . "$scriptd/ENV_${USER}.sh"
+[ -e "$scriptd/ENV_${USER}_${XUSER}.sh" ] && . "$scriptd/ENV_${USER}_${XUSER}.sh"
+
 run_tmux() {
 	name=$1
 	cmd="$3 $4 $5 $6 $7 $8 $9"
@@ -18,6 +21,9 @@ export EDITOR=nano
 action() {
 	act="$1"
 	case "$act" in
+	supervisor)
+		supervisorctl
+		;;
 	crontab)
 		crontab -e
 		;;

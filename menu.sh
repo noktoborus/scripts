@@ -8,11 +8,37 @@ XUSER=${1-"-"}
 [ -e "$scriptd/ENV_${USER}.sh" ] && . "$scriptd/ENV_${USER}.sh"
 [ -e "$scriptd/ENV_${USER}_${XUSER}.sh" ] && . "$scriptd/ENV_${USER}_${XUSER}.sh"
 
+# usage:
+# run_tmux <name> <user> <cmd>
+# _SHELL=/bin/sh run_tmux <name> <user> <cmd>
 run_tmux() {
 	name=$1
 	cmd="$3 $4 $5 $6 $7 $8 $9"
-	[ x"$2" != x"-" ] && name="$2@$name"
-	tmux attach-session -t $name 2>/dev/null || tmux new-session -s $name "${cmd}"
+	sock="$2"
+	if [ x"$sock" != x"-" ];
+	then
+		name="$sock@$name"
+		sock="$sock"
+	else
+		sock="default"
+	fi
+	if [ ! -z "$_SHELL" ];
+	then
+		mkdir -p /tmp/tmux-$UID
+		cfgf="/tmp/tmux-$UID/${sock}@$name.conf"
+		if [ ! -e "$cfgf" ];
+		then
+			echo "set -g default-shell $_SHELL" >>"$cfgf"
+			echo "set -g default-command $_SHELL" >>"$cfgf"
+		fi
+		[ -r "$cfgf" ] && touch "$cfgf"
+		tmux -L "$sock" -f "$cfgf" attach-session -t "$name" 2>/dev/null\
+			|| tmux -L "$sock" -f "$cfgf" new-session -s "$name" "$cmd"
+	else
+		tmux -L "$sock" attach-session -t "$name" 2>/dev/null\
+			|| tmux -L "$sock" new-session -s "$name" "$cmd"
+	fi
+	tmux -L "$sock" attach-session -t "$name" 2>/dev/null || tmux new-session -s "$name" "$cmd"
 	return $?
 }
 

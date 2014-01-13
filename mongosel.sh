@@ -3,6 +3,7 @@
 # file: mongosel.sh
 
 CFGD=""
+FPWD="`pwd`"
 # system
 if [ ! -z "$EX_CONFIG_DIR" -a -d  "$EX_CONFIG_DIR" ];
 then
@@ -18,6 +19,7 @@ CFGF="$CFGD/config.sh"
 # opts default
 # mongo host
 MONGOHOST=${MONGOHOST-"127.0.0.1:27017"}
+MONGORHOST=${MONGORHOST-"$MONGOHOST"}
 MONGOSEL_TMP=${MONGOSEL_TMP-"/tmp/mongosel/sets"}
 MONGO_DUMPS=${MONGO_DUMPS-"/tmp/mongodumps"}
 
@@ -26,15 +28,29 @@ MONGO_DUMPS=${MONGO_DUMPS-"/tmp/mongodumps"}
 [ -x "/bin/printf" ] && printf="/usr/printf"
 eval "printf ''" >/dev/null 2>&1 && alias printf="/bin/echo -n"
 
-printf() {
-	if [ x"$TERM" != x"xterm" -o x"$TERM" != x"screen" ];
+pause() {
+	echo "Press Enter to continue..." >&2
+	read
+}
+
+xisterm() {
+	[ x"$TERM" = x"xterm" -o x"$TERM" = x"screen" ]
+	return $?
+}
+
+xprintf() {
+	if xisterm;
 	then
-		$printf $@ | sed -e "s/\x1b\[\([0-9]*\)\?\(;\)\?\([0-9]*\)m//g"
+		$printf "$*"
 	else
-		$printf $@
+		$printf "$*" | sed -e "s/\x1b\[\([0-9]*\)\?\(;\)\?\([0-9]*\)m//g"
 	fi
 }
+
 #
+initfirst() {
+	cd "$FPWD"
+}
 
 # select mongo's set, create new
 selset() {
@@ -49,7 +65,6 @@ selset() {
 		then
 			list="\#new 'create new set list' $list"
 		fi
-		echo "$list"
 		sel=$(eval "dialog --no-tags --stdout --menu \"select mongo's set\" 0 0 0 $list")
 		R=$?
 		# show dialog with new set
@@ -93,8 +108,9 @@ selset() {
 
 _genDBCOL() {
 	echo "db.adminCommand('listDatabases')['databases']"\
-		| mongo --quiet "$MONGOHOST/local" | grep -v '^\(admin\|config\|local\)$'\
+		| mongo --quiet "$MONGOHOST/local"\
 		| sed -e 's/[[:space:]]*"name" : "\(.*\)".*\|.*/\1/' -e '/^$/d'\
+		| grep -v '^\(admin\|config\|local\)$'\
 		| while read dbname;
 	do
 		echo 'db.setSlaveOk(); db.getCollectionNames()'\
@@ -208,33 +224,171 @@ listset() {
 	name="$1"
 	sz=$(stat -c%s "$MONGOSEL_TMP/set_$name" 2>/dev/null || echo 0)
 	[ $sz -eq 0 ] && return 1
+	xprintf "Listing \e[34m$name\e[0m\n" >&2
 	cat "$MONGOSEL_TMP/set_$name"\
 		| while read dbname;
 	do
 		cat "$MONGOSEL_TMP/set_${name}%$dbname" 2>/dev/null\
 			| xargs -I{} echo "$dbname {}"
 	done
+	xprintf "End listing \e[34m$name\e[0m\n" >&2
+}
+
+seldump() {
+	cd "$MONGO_DUMPS" || return 1
+	find -maxdepth 1 -type d -name '*T*Z*_*' | sed 's/^\.\///' | sort -rh\
+		| while read name;
+	do
+		echo -n "$name "
+		echo "$name" | sed -e 's/.*Z\([0-9]*\)_\(.*\)/\1 \2/'\
+			| while read z n;
+		do
+			z=$(date +"%T %D" "-d@$z")
+			echo "'$n [$z]'"
+		done
+	done | xargs dialog --stdout --no-tags --menu "select dump" 0 0 0 && echo
 }
 
 # dump all selected databses/collection to $MONGO_DUMPS dir
 dumpsetin() {
+	sel="$1"
 	# want data on stdin: "$dbname $collection"
-	trg="$MONGO_DUMPS/`date +'%d.%m.%YT%TZ%s'`"
+	tdir="`date +'%d.%m.%YT%TZ%s'`_$sel"
+	trg="$MONGO_DUMPS/$tdir"
+	R=0
 	mkdir -p "$trg"
 	cd "$trg" || return 1
 	cat\
 		| while read dbname collection;
 	do
-		printf "Dump \e[34m$dbname\e[0m[\"\e[33m$collection\e[0m\"]\n"
-		mongodump -h "$MONGOHOST" -d "$dbname" -c ""
+		xprintf "Dump \e[34m$dbname\e[0m[\"\e[33m$collection\e[0m\"]\n" >&2
+		mongodump -h "$MONGOHOST" -d "$dbname" -c "$collection" >&2
 		R=$?
-		[ $R -eq 0 ] && printf "Result \e[32m0\e[0m\n"
-		[ $R -ne 0 ] && printf "Result \e[31m$R\e[0m\n"
-	done
+		[ $R -eq 0 ] && xprintf "Result \e[32m0\e[0m\n" >&2
+		if [ $R -ne 0 ];
+		then
+			echo "FAIL"
+			xprintf "Result \e[31m$R\e[0m\n" >&2
+			break
+		fi
+	done | grep 'FAIL' >/dev/null && R=1
+	if [ $R -eq 0 ];
+	then
+		echo "$tdir"
+	else
+		cd
+		rm -rf "$trg"
+	fi
+	return $R
 }
 
-# now
-#selset
-#editset "ad"
-listset ad | dumpsetin
+restore() {
+	trg="$MONGO_DUMPS/$1"
+	host="$2"
+	echo "Q $trg : $host" >&2
+	cd "$trg" || return 1
+	echo "db.hostInfo()" | mongo "$host/local" >/dev/null || return 1
+	if xisterm;
+	then
+		mongorestore --drop -h "$host"\
+			| sed -e 's/^\(.* [0-9]\{2\} \([0-9]\{2\}:\?\)\{3\}\(\.[0-9]*\)\?\)/\x1b[33m\1\x1b[0m/'\
+				-e 's/\x1b\[0m \([^ ]*\)$/\x1b[0m \x1b[34m\1\x1b[0m/'\
+				-e 's/\([ ]*dropping\)$/\x1b[35m\1\x1b[0m/'\
+			>&2
+	else
+		mongorestore --drop -h "$host" >&2
+	fi
+	return $?
+}
+
+xrest() {
+	host="$1"
+	sel=$(seldump)
+	if [ ! -z "$sel" ];
+	then
+		restore "$sel" "$host"
+		if [ $? -ne 0 ];
+		then
+			echo "fail on $sel"
+			pause
+			break
+		fi
+		echo "restoration completed"
+	fi
+}
+
+menu() {
+	act="$1"
+	case "$act" in
+		edit)
+			sel=$(selset new)
+			[ ! -z "$sel" ] && editset "$sel"
+			;;
+		dump)
+			sel=$(selset)
+			if [ ! -z "$sel" ];
+			then
+				listset "$sel" | dumpsetin "$sel" || pause
+				echo "dump atata"
+			fi
+			;;
+		sync)
+			# 1. select set
+			sel=$(selset new)
+			if [ ! -z "$sel" ];
+			then
+				# 2. dump
+				sel=$(listset "$sel" | dumpsetin "$sel")
+				if [ ! -z "$sel" ];
+				then
+					# 3. restore
+					restore "$sel" "$MONGORHOST" || pause
+					echo "sync complete"
+				else
+					echo "dump fail" >&2
+					pause
+				fi
+			fi
+			;;
+		rest)
+			xrest "$MONGOHOST"
+			;;
+		lrest)
+			xrest "$MONGORHOST"
+			;;
+		*)
+			return 1
+			;;
+	esac
+	return 0
+}
+
+if [ -z "$1" ];
+then
+	XRE="cheese"
+	while true;
+	do
+		initfirst
+		sel=$(dialog --stdout --menu "$XRE" 0 0 0\
+			edit "Editing/Create dump sets"\
+			dump "Begin dump select set"\
+			sync "Sync data on slave server to master"\
+			lrest "Restore to slave server"\
+			rest "Restore to master server"
+			)
+		_XRE=$(menu "$sel")
+		[ $? -ne 0 ] && break
+		[ ! -z "$_XRE" ] && XRE="$_XRE"
+	done
+	exit 0
+elif [ x"$1" = x"dump" -a ! -z "$2" ];
+then
+	listset "$sel" | dumpsetin "$sel"
+else
+	echo "Usage:"
+	echo "$0 [dump <setname>]"
+	echo "Example:"
+	echo "$0"
+	echo "$0 dump set1"
+fi
 

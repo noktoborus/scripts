@@ -54,7 +54,7 @@ action() {
 		crontab -e
 		;;
 	shell)
-		run_tmux shell "$XUSER" "$SHELL"
+		run_tmux shell "$XUSER" "$SHELL -l"
 		;;
 	mongoset)
 		"$scriptd/mongosel.sh"

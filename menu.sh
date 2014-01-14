@@ -58,8 +58,6 @@ action() {
 		;;
 	mongoset)
 		"$scriptd/mongosel.sh"
-		echo $?
-		sleep 50123123
 		;;
 	sshkeys)
 		"$scriptd/sshkeys.sh"

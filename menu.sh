@@ -38,7 +38,6 @@ run_tmux() {
 		tmux -L "$sock" attach-session -t "$name" 2>/dev/null\
 			|| tmux -L "$sock" new-session -s "$name" "$cmd"
 	fi
-	tmux -L "$sock" attach-session -t "$name" 2>/dev/null || tmux new-session -s "$name" "$cmd"
 	return $?
 }
 

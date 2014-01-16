@@ -38,7 +38,7 @@ act_init() {
 # comment/uncomment marked
 _list_post_onoff() {
 	[ ! -z "$1" ] && return 0
-		# normalize file. remove leading '@' and comment other
+		# normalize file. remove leading '@' and comment other
 	sed -i "$tempf" -e "s/^\([^@#].*\)/#\1/" -e "s/^@[#]*\(.*\)$/\1/"
 }
 
@@ -83,7 +83,7 @@ act_list() {
 		i=$(expr $i + 1)
 		echo -n "$i '$keytype $key $comment' $state "
 	done\
-		| xargs dialog --stdout --checklist "$title" 0 0 0\
+		| xargs dialog --stdout --no-cancel --checklist "$title" 0 0 0\
 		| sed -e "s/\([0-9]*\)/-e \"\1s\/^\\\(.*\\\)$\/@\\\1\/\" /g"\
 		| xargs sed -i "$tempf" -e ""
 	"_list_post_$dr"

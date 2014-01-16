@@ -67,7 +67,7 @@ action() {
 			dialog --msgbox "${HOME}/etc/deploy.sh must be exists and have +x flag\ntouch ~/etc/deploy.sh && chmod +x ~/etc/deploy.sh"\
 				0 0
 		else
-			run_tmux deploy - "$HOME/etc/deploy.sh"
+			run_tmux deploy - "$HOME/etc/deploy.sh || (printf '\e[33mPress Enter to continue...\e[0m\n'; read)"
 		fi
 		;;
 	HELP)

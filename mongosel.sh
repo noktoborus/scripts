@@ -149,7 +149,6 @@ editset() {
 				| xargs -I{} sh -c "grep '^{}$' \"$MONGOSEL_TMP/set_$name\" >/dev/null 2>&1 && echo '{} {} on' || echo '{} {} off'"\
 				| tr '\n' ' ' >"$tmpf_st"
 		fi
-		cat "$tmpf_st"
 		sel=$(dialog --no-tags --stdout --checklist "$name -> databases" 0 0 0 `cat "$tmpf_st"`)
 		R=$?
 		if [ $R -eq 0 ];

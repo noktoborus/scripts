@@ -22,6 +22,7 @@ MONGOHOST=${MONGOHOST-"127.0.0.1:27017"}
 MONGORHOST=${MONGORHOST-"$MONGOHOST"}
 MONGOSEL_TMP=${MONGOSEL_TMP-"/tmp/mongosel/sets"}
 MONGO_DUMPS=${MONGO_DUMPS-"/tmp/mongodumps"}
+MONGO_MENU=${MONGO_MENU-"edit dump sync lrest rest"}
 
 # check printf
 [ -x "/usr/bin/printf" ] && printf="/usr/bin/printf"
@@ -362,19 +363,28 @@ menu() {
 	return 0
 }
 
+genmenu() {
+	MENU="$1"
+	_SR="edit 'Editing/Create dump sets'
+		dump 'Begin dump select set'
+		sync 'Sync data on slave server to master'
+		lrest 'Restore to slave server'
+		rest 'Restore to master server'"
+	for q in $MENU;
+	do
+		echo $q >&2
+		echo $_SR | sed "s/.*\($q[[:space:]]'[^']*'\).*\|.*/\1/" | tr '\n' ' '
+	done
+}
+
 if [ -z "$1" ];
 then
 	XRE="cheese"
 	while true;
 	do
+		_n=$(genmenu "$MONGO_MENU")
 		initfirst
-		sel=$(dialog --stdout --menu "$XRE" 0 0 0\
-			edit "Editing/Create dump sets"\
-			dump "Begin dump select set"\
-			sync "Sync data on slave server to master"\
-			lrest "Restore to slave server"\
-			rest "Restore to master server"
-			)
+		sel=$(eval "dialog --stdout --menu '$XRE' 0 0 0 $_n")
 		_XRE=$(menu "$sel")
 		[ $? -ne 0 ] && break
 		[ ! -z "$_XRE" ] && XRE="$_XRE"

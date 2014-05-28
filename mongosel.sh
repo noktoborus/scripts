@@ -23,6 +23,7 @@ MONGORHOST=${MONGORHOST-"$MONGOHOST"}
 MONGOSEL_TMP=${MONGOSEL_TMP-"/tmp/mongosel/sets"}
 MONGO_DUMPS=${MONGO_DUMPS-"/tmp/mongodumps"}
 MONGO_MENU=${MONGO_MENU-"edit dump sync lrest rest"}
+MONGO_DUMPREST_STATUS=${MONGO_DUMPREST_STATUS-""}
 
 # check printf
 [ -x "/usr/bin/printf" ] && printf="/usr/bin/printf"
@@ -31,7 +32,7 @@ eval "printf ''" >/dev/null 2>&1 && alias printf="/bin/echo -n"
 
 pause() {
 	echo "Press Enter to continue..." >&2
-	read
+	read _x
 }
 
 xisterm() {
@@ -271,6 +272,9 @@ dumpsetin() {
 			xprintf "Result \e[31m$R\e[0m\n" >&2
 			break
 		fi
+		# set statuses
+		[ -n "$MONGO_DUMPREST_STATUS" ]\
+			&& echo "D ${dbname}:${collection}" >> "$MONGO_DUMPREST_STATUS"
 	done | grep 'FAIL' >/dev/null && R=1
 	if [ $R -eq 0 ];
 	then
@@ -285,20 +289,44 @@ dumpsetin() {
 restore() {
 	trg="$MONGO_DUMPS/$1"
 	host="$2"
+	_logf="$MONGOSEL_TMP/restore_`date +%s`.log"
+	tpid=""
 	echo "Q $trg : $host" >&2
 	cd "$trg" || return 1
 	echo "db.hostInfo()" | mongo "$host/local" >/dev/null || return 1
+	# get ns `in work`
+	if [ -n "$MONGO_DUMPREST_STATUS" ];
+	then
+		(tail -F "$_logf"\
+			| sed -u -e 's/.*going into namespace \[\(.*\)\]\|.*/\1/'\
+				-e '/^$/d'\
+				-e 's/\([^\.]*\)\.\(.*\)/RESTORE \1:\2/'\
+				>> "$MONGO_DUMPREST_STATUS") 2>&1 | cat >/dev/null &
+		tpid="$!"
+	fi
+	# restore
+	(
 	if xisterm;
 	then
+		# add colors
 		mongorestore --drop -h "$host"\
-			| sed -e 's/^\(.* [0-9]\{2\} \([0-9]\{2\}:\?\)\{3\}\(\.[0-9]*\)\?\)/\x1b[33m\1\x1b[0m/'\
-				-e 's/\x1b\[0m \([^ ]*\)$/\x1b[0m \x1b[34m\1\x1b[0m/'\
+			| sed -e 's/^\([0-9\-]\{10\}\)T\([0-9:\.]\{12\}\)/\x1b[33m\1\x1b[0mT\x1b[32m\2\x1b[0m/'\
+				-e 's/\([+-][0-9]*\) \([^ ]*\)$/\1 \x1b[0m\x1b[34m\2\x1b[0m/'\
 				-e 's/\([ ]*dropping\)$/\x1b[35m\1\x1b[0m/'\
 			>&2
 	else
+		# simple restoring
 		mongorestore --drop -h "$host" >&2
 	fi
-	return $?
+	echo "code: $?" >&2
+	) 2>&1 | tee "$_logf" >&2
+	R=$(echo -n "0"; tail -n1 "$_logf" 2>/dev/null | sed -e 's/^code: \([0-9]*\)/\1/')
+	# drop garbage
+	[ -n "$tpid" ] && kill -9 "$tpid"
+	echo "$_logf" >&2
+	rm -f "$_logf"
+	# exit
+	return $R
 }
 
 xrest() {
@@ -312,6 +340,8 @@ xrest() {
 			echo "fail on $sel"
 			pause
 			break
+		else
+			pause
 		fi
 		echo "restoration completed"
 	fi

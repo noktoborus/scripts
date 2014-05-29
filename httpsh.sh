@@ -2,6 +2,22 @@
 # vim: ft=sh ff=unix fenc=utf-8
 # file: /httpsh.sh
 
+# example xinetd config:
+#service httpsh
+#{
+#        socket_type = stream
+#        protocol    = tcp
+#        user = root
+#        bind = 127.0.0.1
+#        port = 8071
+#        type = UNLISTED
+#        server = /httpsh.sh
+#        wait = no
+#        disable = no
+#}
+
+
+
 if [ x"$X_BEGIN" != x"yes" ];
 then
 	export X_BEGIN=yes

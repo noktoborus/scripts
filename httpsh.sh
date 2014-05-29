@@ -43,7 +43,7 @@ mongosel() {
 # options
 CFGF="$(dirname $0)/config.sh"
 [ -r "$CFGF" ] && . "$CFGF"
-MONGO_DUMPREST_STATUS=${MONGO_DUMPREST_STATUS-"/tmp/xxx"}
+MONGO_DUMPREST_STATUS=${MONGO_DUMPREST_STATUS-""}
 
 if [ ! -r "$MONGO_DUMPREST_STATUS" ];
 then

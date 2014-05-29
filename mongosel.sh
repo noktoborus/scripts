@@ -300,7 +300,7 @@ restore() {
 		(tail -F "$_logf"\
 			| sed -u -e 's/.*going into namespace \[\(.*\)\]\|.*/\1/'\
 				-e '/^$/d'\
-				-e 's/\([^\.]*\)\.\(.*\)/RESTORE \1:\2/'\
+				-e "s/\([^\.]*\)\.\(.*\)/RESTORE `date +%s` \1:\2/"\
 				>> "$MONGO_DUMPREST_STATUS") 2>&1 | cat >/dev/null &
 		tpid="$!"
 	fi

@@ -273,8 +273,7 @@ dumpsetin() {
 			break
 		fi
 		# set statuses
-		[ -n "$MONGO_DUMPREST_STATUS" ]\
-			&& echo "D ${dbname}:${collection}" >> "$MONGO_DUMPREST_STATUS"
+		echo "DUMP ${dbname}:${collection}" >> "dumprest"
 	done | grep 'FAIL' >/dev/null && R=1
 	if [ $R -eq 0 ];
 	then
@@ -297,6 +296,7 @@ restore() {
 	# get ns `in work`
 	if [ -n "$MONGO_DUMPREST_STATUS" ];
 	then
+		[ -r "dumprest" ] && cat dumprest > "$MONGO_DUMPREST_STATUS"
 		(tail -F "$_logf"\
 			| sed -u -e 's/.*going into namespace \[\(.*\)\]\|.*/\1/'\
 				-e '/^$/d'\

@@ -24,6 +24,8 @@ MONGOSEL_TMP=${MONGOSEL_TMP-"/tmp/mongosel/sets"}
 MONGO_DUMPS=${MONGO_DUMPS-"/tmp/mongodumps"}
 MONGO_MENU=${MONGO_MENU-"edit dump sync lrest rest"}
 MONGO_DUMPREST_STATUS=${MONGO_DUMPREST_STATUS-""}
+MONGO_REST_EMAIL=${MONGO_REST_EMAIL-""}
+MONGO_REST_EMAIL_FROM=${MONGO_REST_EMAIL_FROM-""}
 
 # check printf
 [ -x "/usr/bin/printf" ] && printf="/usr/bin/printf"
@@ -328,6 +330,18 @@ restore() {
 	if [ -n "$MONGO_DUMPREST_STATUS" ];
 	then
 		echo "END `date +%s`" >> "$MONGO_DUMPREST_STATUS"
+		# send mail
+		[ -n "$MONGO_REST_EMAIL" ]\
+			&& (
+			echo "To: $MONGO_REST_EMAIL"
+			[ -n "$MONGO_REST_EMAIL_FROM" ]\
+				&& echo "From: $MONGO_REST_EMAIL_FROM"
+			echo "Subject: MongoDB Sync on `hostname -s`"
+			echo
+			echo "Argument: $1"
+			echo "Database:collection"
+			sed -e 's/^RESTORE \(.*\)\|.*/\1/' -e '/^$/d' "$MONGO_DUMPREST_STATUS"
+			) | sendmail -t -i
 	fi
 	# exit
 	return $R

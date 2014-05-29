@@ -304,25 +304,24 @@ restore() {
 				>> "$MONGO_DUMPREST_STATUS") 2>&1 | cat >/dev/null &
 		tpid="$!"
 	fi
+	tail -F "$_logf" >&2&
+	tpid="$tpid $!"
 	# restore
-	(
 	if xisterm;
 	then
 		# add colors
 		mongorestore --drop -h "$host"\
-			| sed -e 's/^\([0-9\-]\{10\}\)T\([0-9:\.]\{12\}\)/\x1b[33m\1\x1b[0mT\x1b[32m\2\x1b[0m/'\
+			| sed -ue 's/^\([0-9\-]\{10\}\)T\([0-9:\.]\{12\}\)/\x1b[33m\1\x1b[0mT\x1b[32m\2\x1b[0m/'\
 				-e 's/\([+-][0-9]*\) \([^ ]*\)$/\1 \x1b[0m\x1b[34m\2\x1b[0m/'\
 				-e 's/\([ ]*dropping\)$/\x1b[35m\1\x1b[0m/'\
-			>&2
+			> "$_logf" 2>&1
 	else
 		# simple restoring
-		mongorestore --drop -h "$host" >&2
+		mongorestore --drop -h "$host" > "$_logf" 2>&1
 	fi
-	echo "code: $?" >&2
-	) 2>&1 | tee "$_logf" >&2
-	R=$(echo -n "0"; tail -n1 "$_logf" 2>/dev/null | sed -e 's/^code: \([0-9]*\)/\1/')
+	R=$?
 	# drop garbage
-	[ -n "$tpid" ] && kill -9 "$tpid"
+	[ -n "$tpid" ] && kill -9 $tpid
 	echo "$_logf" >&2
 	rm -f "$_logf"
 	# exit

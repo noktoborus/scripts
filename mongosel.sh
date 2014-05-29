@@ -296,11 +296,12 @@ restore() {
 	# get ns `in work`
 	if [ -n "$MONGO_DUMPREST_STATUS" ];
 	then
-		[ -r "dumprest" ] && cat dumprest > "$MONGO_DUMPREST_STATUS"
+		echo "BEGIN `date +%s`" > "$MONGO_DUMPREST_STATUS"
+		[ -r "dumprest" ] && cat dumprest >> "$MONGO_DUMPREST_STATUS"
 		(tail -F "$_logf"\
 			| sed -u -e 's/.*going into namespace \[\(.*\)\]\|.*/\1/'\
 				-e '/^$/d'\
-				-e "s/\([^\.]*\)\.\(.*\)/RESTORE `date +%s` \1:\2/"\
+				-e "s/\([^\.]*\)\.\(.*\)/RESTORE \1:\2/"\
 				>> "$MONGO_DUMPREST_STATUS") 2>&1 | cat >/dev/null &
 		tpid="$!"
 	fi
@@ -324,6 +325,10 @@ restore() {
 	[ -n "$tpid" ] && kill -9 $tpid
 	echo "$_logf" >&2
 	rm -f "$_logf"
+	if [ -n "$MONGO_DUMPREST_STATUS" ];
+	then
+		echo "END `date +%s`" >> "$MONGO_DUMPREST_STATUS"
+	fi
 	# exit
 	return $R
 }
